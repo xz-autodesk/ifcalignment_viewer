@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFC Alignment Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .upload-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+        
+        .upload-zone {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+        
+        .upload-zone:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+        
+        .upload-zone.dragover {
+            border-color: #764ba2;
+            background: #e8eaff;
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 10px;
+        }
+        
+        .upload-text {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .upload-hint {
+            font-size: 0.9em;
+            color: #999;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .alignments-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alignments-section.show {
+            display: block;
+        }
+        
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .view-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+        
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .view-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9em;
+        }
+        
+        .view-btn:hover {
+            background: #f0f2ff;
+        }
+        
+        .view-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .search-box {
+            flex: 1;
+            max-width: 400px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95em;
+            transition: all 0.3s;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .alignment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .alignment-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .alignment-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .alignment-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+            transform: translateY(-1px);
+        }
+        
+        .alignment-card:hover::before {
+            opacity: 1;
+        }
+        
+        .alignment-card.selected {
+            border-color: #667eea;
+            background: #f8f9ff;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+        }
+        
+        .alignment-card.selected::before {
+            opacity: 1;
+        }
+        
+        .alignment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+        
+        .alignment-name {
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #333;
+            line-height: 1.3;
+            flex: 1;
+        }
+        
+        .alignment-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7em;
+            font-weight: 600;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+        
+        .status-complete {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .status-incomplete {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        .alignment-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.75em;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        
+        .alignment-meta span {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        
+        .global-id-text {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            word-break: break-all;
+            line-height: 1.2;
+        }
+        
+        .alignment-features {
+            display: flex;
+            gap: 6px;
+            font-size: 0.75em;
+        }
+        
+        .feature-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: #f0f0f0;
+            color: #666;
+        }
+        
+        .feature-badge.active {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        /* Table View */
+        .alignment-table-container {
+            display: none;
+            overflow-x: auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .alignment-table-container.show {
+            display: block;
+        }
+        
+        .alignment-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .alignment-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .alignment-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+        
+        .alignment-table tbody tr {
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .alignment-table tbody tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .alignment-table tbody tr.selected {
+            background: #f0f2ff;
+        }
+        
+        .alignment-table td {
+            padding: 12px 16px;
+            font-size: 0.85em;
+            color: #555;
+        }
+        
+        .alignment-table .name-cell {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .alignment-table .id-cell {
+            font-family: 'Courier New', monospace;
+            color: #888;
+            font-size: 0.8em;
+            word-break: break-all;
+            max-width: 200px;
+        }
+        
+        .stats-summary {
+            display: flex;
+            gap: 15px;
+            padding: 12px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.85em;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .visualization-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+        
+        .visualization-section.show {
+            display: block;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .success-message.show {
+            display: block;
+        }
+        
+        #visualizationFrame {
+            width: 100%;
+            height: 1500px;
+            border: none;
+            border-radius: 10px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .file-info {
+            background: #f0f2ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .file-info.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏗️ IFC Alignment Viewer</h1>
+            <p>Upload your IFC file and visualize alignments interactively</p>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        
+        <!-- Upload Section -->
+        <div class="upload-section">
+            <h2 class="section-title">📂 Upload IFC File</h2>
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Click to browse or drag & drop your IFC file here</div>
+                <div class="upload-hint">Supported format: .ifc (max 100MB)</div>
+            </div>
+            <input type="file" id="fileInput" accept=".ifc" />
+            
+            <div class="file-info" id="fileInfo">
+                <strong>Selected file:</strong> <span id="fileName"></span>
+            </div>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Processing your file...</div>
+        </div>
+        
+        <!-- Alignments Selection Section -->
+        <div class="alignments-section" id="alignmentsSection">
+            <h2 class="section-title">🎯 Select Alignment</h2>
+            
+            <!-- Stats Summary -->
+            <div class="stats-summary" id="statsSummary" style="display: none;">
+                <div class="stat-item">
+                    <span>📊 Total:</span>
+                    <span class="stat-value" id="totalCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>✅ Complete:</span>
+                    <span class="stat-value" id="completeCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span>⚠️ Incomplete:</span>
+                    <span class="stat-value" id="incompleteCount">0</span>
+                </div>
+            </div>
+            
+            <!-- View Controls -->
+            <div class="view-controls">
+                <div class="view-toggle">
+                    <button class="view-btn active" id="cardViewBtn" onclick="switchView('card')">
+                        🎴 Card View
+                    </button>
+                    <button class="view-btn" id="tableViewBtn" onclick="switchView('table')">
+                        📋 Table View
+                    </button>
+                </div>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="🔍 Search by name, ID, or Global ID..." onkeyup="filterAlignments()">
+                </div>
+            </div>
+            
+            <!-- Card View -->
+            <div class="alignment-grid" id="alignmentGrid"></div>
+            
+            <!-- Table View -->
+            <div class="alignment-table-container" id="alignmentTable">
+                <table class="alignment-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>ID</th>
+                            <th>Global ID</th>
+                            <th>Type</th>
+                            <th>Base Curve</th>
+                            <th>Gradient</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alignmentTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Visualization Section -->
+        <div class="visualization-section" id="visualizationSection">
+            <h2 class="section-title">📊 Interactive Visualization</h2>
+            <iframe id="visualizationFrame"></iframe>
+        </div>
+    </div>
+    
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const loading = document.getElementById('loading');
+        const alignmentsSection = document.getElementById('alignmentsSection');
+        const alignmentGrid = document.getElementById('alignmentGrid');
+        const alignmentTableBody = document.getElementById('alignmentTableBody');
+        const alignmentTable = document.getElementById('alignmentTable');
+        const visualizationSection = document.getElementById('visualizationSection');
+        const visualizationFrame = document.getElementById('visualizationFrame');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const statsSummary = document.getElementById('statsSummary');
+        const cardViewBtn = document.getElementById('cardViewBtn');
+        const tableViewBtn = document.getElementById('tableViewBtn');
+        
+        let selectedAlignment = null;
+        let allAlignments = [];
+        let currentView = 'card';
+        
+        // Upload zone click
+        uploadZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Drag and drop
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            successMessage.classList.remove('show');
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.classList.add('show');
+            errorMessage.classList.remove('show');
+            setTimeout(() => {
+                successMessage.classList.remove('show');
+            }, 3000);
+        }
+        
+        async function handleFile(file) {
+            if (!file.name.toLowerCase().endsWith('.ifc')) {
+                showError('Please select a valid IFC file');
+                return;
+            }
+            
+            fileName.textContent = file.name;
+            fileInfo.classList.add('show');
+            
+            // Upload file
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            loading.classList.add('show');
+            alignmentsSection.classList.remove('show');
+            visualizationSection.classList.remove('show');
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Upload failed');
+                }
+                
+                showSuccess(`File uploaded successfully! Found ${data.alignments.length} alignment(s)`);
+                displayAlignments(data.alignments);
+            } catch (error) {
+                showError('Error: ' + error.message);
+            } finally {
+                loading.classList.remove('show');
+            }
+        }
+        
+        function switchView(view) {
+            currentView = view;
+            
+            if (view === 'card') {
+                alignmentGrid.style.display = 'grid';
+                alignmentTable.classList.remove('show');
+                cardViewBtn.classList.add('active');
+                tableViewBtn.classList.remove('active');
+            } else {
+                alignmentGrid.style.display = 'none';
+                alignmentTable.classList.add('show');
+                cardViewBtn.classList.remove('active');
+                tableViewBtn.classList.add('active');
+            }
+        }
+        
+        function filterAlignments() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            if (currentView === 'card') {
+                const cards = alignmentGrid.querySelectorAll('.alignment-card');
+                cards.forEach(card => {
+                    const name = card.querySelector('.alignment-name').textContent.toLowerCase();
+                    const id = card.dataset.id.toLowerCase();
+                    const globalId = card.dataset.globalId || '';
+                    if (name.includes(searchTerm) || id.includes(searchTerm) || globalId.includes(searchTerm)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            } else {
+                const rows = alignmentTableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+        }
+        
+        function displayAlignments(alignments) {
+            allAlignments = alignments;
+            alignmentGrid.innerHTML = '';
+            alignmentTableBody.innerHTML = '';
+            
+            if (alignments.length === 0) {
+                alignmentGrid.innerHTML = '<p>No alignments found in this file.</p>';
+                return;
+            }
+            
+            // Calculate stats
+            const completeCount = alignments.filter(a => a.is_complete).length;
+            const incompleteCount = alignments.length - completeCount;
+            
+            document.getElementById('totalCount').textContent = alignments.length;
+            document.getElementById('completeCount').textContent = completeCount;
+            document.getElementById('incompleteCount').textContent = incompleteCount;
+            statsSummary.style.display = 'flex';
+            
+            // Create cards
+            alignments.forEach(alignment => {
+                // Card View
+                const card = document.createElement('div');
+                card.className = 'alignment-card';
+                card.dataset.id = alignment.id;
+                card.dataset.name = alignment.name.toLowerCase();
+                card.dataset.globalId = alignment.global_id.toLowerCase();
+                
+                const statusClass = alignment.is_complete ? 'status-complete' : 'status-incomplete';
+                const statusText = alignment.is_complete ? 'Complete' : 'Incomplete';
+                
+                card.innerHTML = `
+                    <div class="alignment-header">
+                        <div class="alignment-name">${alignment.name}</div>
+                        <span class="alignment-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="alignment-meta">
+                        <span title="ID">🔢 ${alignment.id}</span>
+                        <span title="Global ID" class="global-id-text">🌐 ${alignment.global_id}</span>
+                    </div>
+                    <div class="alignment-features">
+                        <span class="feature-badge ${alignment.has_base_curve ? 'active' : ''}">
+                            ${alignment.has_base_curve ? '✓' : '✗'} Base
+                        </span>
+                        <span class="feature-badge ${alignment.has_gradient_curve ? 'active' : ''}">
+                            ${alignment.has_gradient_curve ? '✓' : '✗'} Gradient
+                        </span>
+                    </div>
+                `;
+                
+                if (alignment.is_complete) {
+                    card.addEventListener('click', () => selectAlignment(alignment.id, card, null));
+                } else {
+                    card.style.opacity = '0.5';
+                    card.style.cursor = 'not-allowed';
+                    card.title = 'This alignment is incomplete and cannot be visualized';
+                }
+                
+                alignmentGrid.appendChild(card);
+                
+                // Table View
+                const row = document.createElement('tr');
+                row.dataset.id = alignment.id;
+                if (!alignment.is_complete) {
+                    row.style.opacity = '0.5';
+                    row.style.cursor = 'not-allowed';
+                    row.title = 'This alignment is incomplete';
+                }
+                
+                row.innerHTML = `
+                    <td class="name-cell">${alignment.name}</td>
+                    <td>${alignment.id}</td>
+                    <td class="id-cell" title="${alignment.global_id}">${alignment.global_id}</td>
+                    <td>${alignment.type}</td>
+                    <td>${alignment.has_base_curve ? '✅' : '❌'}</td>
+                    <td>${alignment.has_gradient_curve ? '✅' : '❌'}</td>
+                    <td><span class="alignment-status ${statusClass}">${statusText}</span></td>
+                `;
+                
+                if (alignment.is_complete) {
+                    row.addEventListener('click', () => selectAlignment(alignment.id, null, row));
+                }
+                
+                alignmentTableBody.appendChild(row);
+            });
+            
+            alignmentsSection.classList.add('show');
+        }
+        
+        async function selectAlignment(alignmentId, card, row) {
+            // Update selection UI
+            document.querySelectorAll('.alignment-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            document.querySelectorAll('.alignment-table tbody tr').forEach(r => {
+                r.classList.remove('selected');
+            });
+            
+            if (card) card.classList.add('selected');
+            if (row) row.classList.add('selected');
+            
+            selectedAlignment = alignmentId;
+            
+            // Load visualization
+            loading.classList.add('show');
+            visualizationSection.classList.remove('show');
+            
+            try {
+                const response = await fetch(`/visualize/${alignmentId}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Visualization failed');
+                }
+                
+                // Load visualization in iframe
+                visualizationFrame.src = `/get_visualization/${data.html_path}`;
+                visualizationSection.classList.add('show');
+                
+                // Scroll to visualization
+                setTimeout(() => {
+                    visualizationSection.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+                
+                showSuccess('Visualization generated successfully!');
+            } catch (error) {
+                showError('Error generating visualization: ' + error.message);
+                console.error(error);
+            } finally {
+                loading.classList.remove('show');
+            }
+        }
+    </script>
+</body>
+</html>
+
