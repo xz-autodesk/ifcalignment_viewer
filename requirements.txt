@@ -1,5 +1,5 @@
 Flask==3.0.0
-ifcopenshell==0.8.0
+ifcopenshell>=0.8.3
 plotly==5.18.0
 pandas>=2.2.0
 numpy>=1.26.0
